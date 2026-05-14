@@ -129,8 +129,66 @@ class Database:
         """
         await self.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id          SERIAL      PRIMARY KEY NOT NULL,
-                telegram_id TEXT        NOT NULL,
-                fullname    TEXT        NOT NULL
+                id           SERIAL      PRIMARY KEY NOT NULL,
+                telegram_id  TEXT        NOT NULL,
+                fullname     TEXT        NOT NULL,
+                phone_number TEXT        NOT NULL
             )
         """)
+
+    async def create_incidents_table(self) -> None:
+        """Create the ``incidents`` table if it does not already exist.
+
+        Columns:
+            id          — SERIAL primary key, auto-increment, not null.
+            fullname    — TEXT, not null. Full name of the reporter.
+            description — TEXT, not null. Incident description.
+            floor       — INTEGER, not null. Floor number from the QR code.
+            phone       — TEXT, null. Reporter's phone number (optional).
+            datetime    — TIMESTAMP, not null. Time the incident was reported.
+
+        Raises:
+            asyncpg.PostgresError: On query failure.
+        """
+        await self.execute("""
+            CREATE TABLE IF NOT EXISTS incidents (
+                id          SERIAL      PRIMARY KEY NOT NULL,
+                fullname    TEXT        NOT NULL,
+                description TEXT        NOT NULL,
+                floor       INTEGER     NOT NULL,
+                phone       TEXT,
+                datetime    TIMESTAMP   NOT NULL
+            )
+        """)
+
+    async def add_user(self, telegram_id: str, fullname: str, phone_number: str) -> None:
+        """Insert a new user into the ``users`` table.
+
+        Args:
+            telegram_id: The user's Telegram ID (int or str).
+            fullname:    The user's full name.
+
+        Raises:
+            asyncpg.PostgresError: On query failure.
+        """
+        await self.execute(
+            "INSERT INTO users (telegram_id, fullname, phone_number) VALUES ($1, $2, $3)",
+            str(telegram_id), fullname, phone_number
+        )
+
+    async def get_user(self, telegram_id: str) -> asyncpg.Record | None:
+        """Fetch a single user row by Telegram ID.
+
+        Args:
+            telegram_id: The user's Telegram ID as a string.
+
+        Returns:
+            A :class:`asyncpg.Record` with ``id``, ``telegram_id``, ``fullname``, and
+            ``phone_number`` columns, or ``None`` if no matching user exists.
+
+        Raises:
+            asyncpg.PostgresError: On query failure.
+        """
+        return await self.fetchone(
+            "SELECT * FROM users WHERE telegram_id = $1", str(telegram_id)
+        )

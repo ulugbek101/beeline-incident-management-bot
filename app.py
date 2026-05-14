@@ -8,6 +8,7 @@ from handlers.start import router
 async def main():
     await db.connect()
     await db.create_users_table()
+    await db.create_incidents_table()
     await bot.delete_webhook(drop_pending_updates=True)
     try:
         await dp.start_polling(bot)
