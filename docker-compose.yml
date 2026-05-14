@@ -1,5 +1,8 @@
+name: incident-management-bot
+
 services:
   db:
+    container_name: db
     image: postgres:16-alpine
     env_file: .env
     environment:
@@ -9,13 +12,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
+      test: ["CMD-SHELL", "pg_isready -U $DB_USER -d $DB_NAME"]
       interval: 5s
       timeout: 5s
       retries: 10
     restart: unless-stopped
 
   bot:
+    container_name: bot
     build: .
     env_file: .env
     depends_on:
