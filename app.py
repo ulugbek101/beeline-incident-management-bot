@@ -2,14 +2,18 @@ import asyncio
 import logging
 
 from loader import dp, bot, db
+from handlers import cancel
 from handlers.start import router
-
+from utils.commands import set_bot_commands
 
 async def main():
     await db.connect()
     await db.create_users_table()
     await db.create_incidents_table()
     await bot.delete_webhook(drop_pending_updates=True)
+
+    await set_bot_commands(bot=bot)
+
     try:
         await dp.start_polling(bot)
     finally:

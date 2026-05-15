@@ -8,5 +8,6 @@ class UserRegistrationForm(StatesGroup):
 
 class IncidentRegistrationForm(StatesGroup):
     fullname = State()
-    description = State()
     phone_number = State()
+    incident = State()
+    floor = State()

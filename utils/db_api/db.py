@@ -3,173 +3,176 @@ from typing import Any
 
 
 class Database:
-    """Async PostgreSQL interface backed by an asyncpg connection pool.
+    """Асинхронный интерфейс к PostgreSQL на основе пула соединений asyncpg.
 
-    Lifecycle::
+    Жизненный цикл::
 
         db = Database(host=..., port=..., user=..., password=..., db_name=...)
-        await db.connect()   # call once on startup
+        await db.connect()   # вызвать один раз при старте
         ...
-        await db.close()     # call once on shutdown
+        await db.close()     # вызвать один раз при завершении
 
-    All query methods acquire a connection from the pool for the duration of
-    the call and release it immediately after, so they are safe to call
-    concurrently from multiple aiogram handlers.
+    Все методы запросов захватывают соединение из пула на время выполнения
+    и сразу освобождают его, поэтому их можно безопасно вызывать параллельно
+    из нескольких обработчиков aiogram.
 
-    Note: asyncpg uses ``$1, $2, ...`` positional placeholders, not ``%s``.
+    Примечание: asyncpg использует позиционные плейсхолдеры ``$1, $2, ...``, а не ``%s``.
     """
 
     def __init__(self, host: str, port: int, user: str, password: str, db_name: str) -> None:
-        """Store connection parameters; pool is created lazily via :meth:`connect`.
+        """Сохраняет параметры подключения; пул создаётся отложенно через :meth:`connect`.
 
-        Args:
-            host:     PostgreSQL server hostname or IP address.
-            port:     PostgreSQL server port (typically 5432).
-            user:     PostgreSQL username.
-            password: PostgreSQL password.
-            db_name:  Name of the database to connect to.
+        Аргументы:
+            host:     Имя хоста или IP-адрес сервера PostgreSQL.
+            port:     Порт сервера PostgreSQL (обычно 5432).
+            user:     Имя пользователя PostgreSQL.
+            password: Пароль PostgreSQL.
+            db_name:  Название базы данных для подключения.
         """
         self._dsn = f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
         self.pool: asyncpg.Pool | None = None
 
     async def connect(self) -> None:
-        """Create the connection pool. Must be called once before any queries.
+        """Создаёт пул соединений. Должен быть вызван один раз перед любыми запросами.
 
-        Raises:
-            asyncpg.PostgresError: If the connection parameters are invalid or
-                the server is unreachable.
+        Исключения:
+            asyncpg.PostgresError: Если параметры подключения неверны или сервер недоступен.
         """
         self.pool = await asyncpg.create_pool(dsn=self._dsn)
 
     async def close(self) -> None:
-        """Gracefully close all connections in the pool."""
+        """Корректно закрывает все соединения в пуле."""
         if self.pool:
             await self.pool.close()
             self.pool = None
 
     async def execute(self, sql: str, *params: Any) -> str:
-        """Execute a statement that returns no rows (INSERT / UPDATE / DELETE).
+        """Выполняет SQL-запрос, не возвращающий строк (INSERT / UPDATE / DELETE).
 
-        Args:
-            sql:    SQL string with ``$1, $2, ...`` placeholders.
-            *params: Values bound to the placeholders in order.
+        Аргументы:
+            sql:     SQL-строка с плейсхолдерами ``$1, $2, ...``.
+            *params: Значения, подставляемые в плейсхолдеры по порядку.
 
-        Returns:
-            PostgreSQL command tag, e.g. ``"INSERT 0 1"`` or ``"UPDATE 3"``.
+        Возвращает:
+            Тег команды PostgreSQL, например ``"INSERT 0 1"`` или ``"UPDATE 3"``.
 
-        Raises:
-            asyncpg.PostgresError: On query failure.
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
         """
         async with self.pool.acquire() as conn:
             return await conn.execute(sql, *params)
 
     async def fetchone(self, sql: str, *params: Any) -> asyncpg.Record | None:
-        """Fetch the first matching row.
+        """Получает первую подходящую строку.
 
-        Args:
-            sql:    SQL string with ``$1, $2, ...`` placeholders.
-            *params: Values bound to the placeholders in order.
+        Аргументы:
+            sql:     SQL-строка с плейсхолдерами ``$1, $2, ...``.
+            *params: Значения, подставляемые в плейсхолдеры по порядку.
 
-        Returns:
-            A single :class:`asyncpg.Record` (dict-like), or ``None`` if no
-            rows matched.
+        Возвращает:
+            Один объект :class:`asyncpg.Record` (работает как словарь), или ``None``,
+            если строки не найдены.
 
-        Raises:
-            asyncpg.PostgresError: On query failure.
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
         """
         async with self.pool.acquire() as conn:
             return await conn.fetchrow(sql, *params)
 
     async def fetchall(self, sql: str, *params: Any) -> list[asyncpg.Record]:
-        """Fetch all matching rows.
+        """Получает все подходящие строки.
 
-        Args:
-            sql:    SQL string with ``$1, $2, ...`` placeholders.
-            *params: Values bound to the placeholders in order.
+        Аргументы:
+            sql:     SQL-строка с плейсхолдерами ``$1, $2, ...``.
+            *params: Значения, подставляемые в плейсхолдеры по порядку.
 
-        Returns:
-            A list of :class:`asyncpg.Record` objects (each is dict-like).
-            Returns an empty list when no rows match.
+        Возвращает:
+            Список объектов :class:`asyncpg.Record` (каждый работает как словарь).
+            Возвращает пустой список, если строки не найдены.
 
-        Raises:
-            asyncpg.PostgresError: On query failure.
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
         """
         async with self.pool.acquire() as conn:
             return await conn.fetch(sql, *params)
 
     async def fetchval(self, sql: str, *params: Any) -> Any:
-        """Fetch a single scalar value from the first column of the first row.
+        """Получает одно скалярное значение из первого столбца первой строки.
 
-        Convenient for aggregates such as ``COUNT(*)``, ``MAX(id)``, etc.
+        Удобно для агрегатов: ``COUNT(*)``, ``MAX(id)`` и т.п.
 
-        Args:
-            sql:    SQL string with ``$1, $2, ...`` placeholders.
-            *params: Values bound to the placeholders in order.
+        Аргументы:
+            sql:     SQL-строка с плейсхолдерами ``$1, $2, ...``.
+            *params: Значения, подставляемые в плейсхолдеры по порядку.
 
-        Returns:
-            The value of the first column of the first matching row, or
-            ``None`` if no rows matched.
+        Возвращает:
+            Значение первого столбца первой подходящей строки, или ``None``,
+            если строки не найдены.
 
-        Raises:
-            asyncpg.PostgresError: On query failure.
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
         """
         async with self.pool.acquire() as conn:
             return await conn.fetchval(sql, *params)
 
     async def create_users_table(self) -> None:
-        """Create the ``users`` table if it does not already exist.
+        """Создаёт таблицу ``users``, если она ещё не существует.
 
-        Columns:
-            id          — SERIAL primary key, auto-increment, not null.
-            telegram_id — TEXT, not null. Telegram user ID stored as text.
-            fullname    — TEXT, not null. User's full name from Telegram.
+        Столбцы:
+            id           — SERIAL, первичный ключ, автоинкремент, not null.
+            telegram_id  — TEXT, not null, уникальный. ID пользователя Telegram в виде текста.
+            fullname     — TEXT, not null. Полное имя пользователя из Telegram.
+            phone_number — TEXT, not null. Номер телефона пользователя.
 
-        Raises:
-            asyncpg.PostgresError: On query failure.
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
         """
         await self.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id           SERIAL      PRIMARY KEY NOT NULL,
-                telegram_id  TEXT        NOT NULL,
+                telegram_id  TEXT        NOT NULL UNIQUE,
                 fullname     TEXT        NOT NULL,
                 phone_number TEXT        NOT NULL
             )
         """)
 
     async def create_incidents_table(self) -> None:
-        """Create the ``incidents`` table if it does not already exist.
+        """Создаёт таблицу ``incidents``, если она ещё не существует.
 
-        Columns:
-            id          — SERIAL primary key, auto-increment, not null.
-            fullname    — TEXT, not null. Full name of the reporter.
-            description — TEXT, not null. Incident description.
-            floor       — INTEGER, not null. Floor number from the QR code.
-            phone       — TEXT, null. Reporter's phone number (optional).
-            datetime    — TIMESTAMP, not null. Time the incident was reported.
+        Столбцы:
+            id                        — SERIAL, первичный ключ, автоинкремент, not null.
+            user_id                   — INT, not null. Внешний ключ на users(id).
+            incident_description_type — TEXT, not null. Тип описания инцидента.
+            incident                  — TEXT, not null. Описание инцидента.
+            floor                     — INTEGER, not null. Этаж из QR-кода.
+            datetime                  — TIMESTAMP, not null. Время регистрации инцидента.
 
-        Raises:
-            asyncpg.PostgresError: On query failure.
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
         """
         await self.execute("""
             CREATE TABLE IF NOT EXISTS incidents (
-                id          SERIAL      PRIMARY KEY NOT NULL,
-                fullname    TEXT        NOT NULL,
-                description TEXT        NOT NULL,
-                floor       INTEGER     NOT NULL,
-                phone       TEXT,
-                datetime    TIMESTAMP   NOT NULL
+                id                          SERIAL      PRIMARY KEY NOT NULL,
+                user_id                     INT         NOT NULL,
+                incident_description_type   TEXT        NOT NULL,
+                incident                    TEXT        NOT NULL,
+                floor                       INTEGER     NOT NULL,
+                datetime                    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                CONSTRAINT incident_user FOREIGN KEY (user_id) REFERENCES users(id)
             )
         """)
 
     async def add_user(self, telegram_id: str, fullname: str, phone_number: str) -> None:
-        """Insert a new user into the ``users`` table.
+        """Добавляет нового пользователя в таблицу ``users``.
 
-        Args:
-            telegram_id: The user's Telegram ID (int or str).
-            fullname:    The user's full name.
+        Аргументы:
+            telegram_id:  ID пользователя Telegram (число или строка).
+            fullname:     Полное имя пользователя.
+            phone_number: Номер телефона пользователя.
 
-        Raises:
-            asyncpg.PostgresError: On query failure.
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
         """
         await self.execute(
             "INSERT INTO users (telegram_id, fullname, phone_number) VALUES ($1, $2, $3)",
@@ -177,17 +180,17 @@ class Database:
         )
 
     async def get_user(self, telegram_id: str) -> asyncpg.Record | None:
-        """Fetch a single user row by Telegram ID.
+        """Получает одну строку пользователя по Telegram ID.
 
-        Args:
-            telegram_id: The user's Telegram ID as a string.
+        Аргументы:
+            telegram_id: ID пользователя Telegram в виде строки.
 
-        Returns:
-            A :class:`asyncpg.Record` with ``id``, ``telegram_id``, ``fullname``, and
-            ``phone_number`` columns, or ``None`` if no matching user exists.
+        Возвращает:
+            Объект :class:`asyncpg.Record` со столбцами ``id``, ``telegram_id``,
+            ``fullname`` и ``phone_number``, или ``None``, если пользователь не найден.
 
-        Raises:
-            asyncpg.PostgresError: On query failure.
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
         """
         return await self.fetchone(
             "SELECT * FROM users WHERE telegram_id = $1", str(telegram_id)
