@@ -179,6 +179,23 @@ class Database:
             str(telegram_id), fullname, phone_number
         )
 
+    async def add_incident(self, user_id: int, incident_description_type: str, incident: str, floor: int):
+        """Добавляет новый инцидент в таблицу ``incidents``
+
+        Аргументы:
+            user_id:  ID пользователя (число)
+            incident_description_type: Тип инцидента (текст, видео или аудио сообщение)
+            incident: Текст обращения или путь к видео или аудио
+            floor: Номер этажа
+
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
+        """
+        return await self.fetchone(
+            "INSERT INTO incidents (user_id, incident_description_type, incident, floor) VALUES ($1, $2, $3, $4) RETURNING id, datetime",
+            user_id, incident_description_type, incident, floor
+        )
+
     async def get_user(self, telegram_id: str) -> asyncpg.Record | None:
         """Получает одну строку пользователя по Telegram ID.
 

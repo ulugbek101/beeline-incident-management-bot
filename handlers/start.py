@@ -1,5 +1,5 @@
 from aiogram import types
-from aiogram.filters.command import CommandStart, CommandObject
+from aiogram.filters.command import CommandStart, CommandObject, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
@@ -10,7 +10,7 @@ from handlers.user_registration import user_registration
 from handlers.incident_registration import incident_registration
 
 
-@router.message(CommandStart())
+@router.message(Command(commands=["start", "create_incident"], prefix="/"))
 async def start(message: types.Message, command: CommandObject, state: FSMContext):
     floor = command.args
 

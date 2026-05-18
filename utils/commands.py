@@ -10,6 +10,10 @@ async def set_bot_commands(bot: Bot):
                 description="Запуск бота",
             ),
             BotCommand(
+                command="create_incident",
+                description="Создать обращение",
+            ),
+            BotCommand(
                 command="help",
                 description="Руководство",
             ),
