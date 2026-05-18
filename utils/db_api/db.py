@@ -141,10 +141,12 @@ class Database:
 
         Столбцы:
             id                        — SERIAL, первичный ключ, автоинкремент, not null.
-            user_id                   — INT, not null. Внешний ключ на users(id).
-            incident_description_type — TEXT, not null. Тип описания инцидента.
-            incident                  — TEXT, not null. Описание инцидента.
-            floor                     — INTEGER, not null. Этаж из QR-кода.
+            user_id                   — INT,     not null. Внешний ключ на users(id).
+            incident_description_type — TEXT,    not null. Тип описания инцидента.
+            incident                  — TEXT,    not null. Описание инцидента.
+            floor                     — INT,     not null. Этаж из QR-кода.
+            is_solved                 — BOOLEAN, not null. Статус решения инцидента.
+            solved_by                 — INT,     null. Кем был решен.
             datetime                  — TIMESTAMP, not null. Время регистрации инцидента.
 
         Исключения:
@@ -156,10 +158,13 @@ class Database:
                 user_id                     INT         NOT NULL,
                 incident_description_type   TEXT        NOT NULL,
                 incident                    TEXT        NOT NULL,
-                floor                       INTEGER     NOT NULL,
+                floor                       INT         NOT NULL,
+                is_solved                   BOOLEAN     NOT NULL DEFAULT FALSE,
+                solved_by                   INT         NULL,
                 datetime                    TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-                CONSTRAINT incident_user FOREIGN KEY (user_id) REFERENCES users(id)
+                CONSTRAINT incident_user FOREIGN KEY (user_id)  REFERENCES users(id),
+                CONSTRAINT solved_by     FOREIGN KEY(solved_by) REFERENCES users(id)
             )
         """)
 
@@ -179,7 +184,7 @@ class Database:
             str(telegram_id), fullname, phone_number
         )
 
-    async def add_incident(self, user_id: int, incident_description_type: str, incident: str, floor: int):
+    async def add_incident(self, user_id: int, incident_description_type: str, incident: str, floor: int) -> asyncpg.Record | None:
         """Добавляет новый инцидент в таблицу ``incidents``
 
         Аргументы:
@@ -196,11 +201,45 @@ class Database:
             user_id, incident_description_type, incident, floor
         )
 
-    async def get_user(self, telegram_id: str) -> asyncpg.Record | None:
-        """Получает одну строку пользователя по Telegram ID.
+    async def finish_incident(self, user_id: int, incident_id: int) -> None:
+        """Отмечает инцидент как решённый в таблице ``incidents``
+
+        Аргументы:
+            user_id:  ID пользователя (число)
+            incident_id: ID инцидента (число)
+
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
+        """
+        await self.execute(
+            "UPDATE incidents SET is_solved = TRUE, solved_by = $1 WHERE id = $2",
+            user_id, incident_id
+        )
+
+    async def get_incident(self, id: int) -> asyncpg.Record | None:
+        """Получает одну строку инцидента по его ID.
+
+        Аргументы:
+            id: ID инцидента (число).
+
+        Возвращает:
+            Объект :class:`asyncpg.Record` со всеми столбцами таблицы ``incidents``,
+            или ``None``, если инцидент не найден.
+
+        Исключения:
+            asyncpg.PostgresError: При ошибке выполнения запроса.
+        """
+        return await self.fetchone(
+            "SELECT * FROM incidents WHERE id = $1", id
+        )
+
+    async def get_user(self, telegram_id: str = None, user_id: int = None) -> asyncpg.Record | None:
+        """Получает одну строку пользователя по Telegram ID или по user_id.
+           Приоритет отдается telegram_id
 
         Аргументы:
             telegram_id: ID пользователя Telegram в виде строки.
+            telegram_id: ID пользователя (число).
 
         Возвращает:
             Объект :class:`asyncpg.Record` со столбцами ``id``, ``telegram_id``,
@@ -209,6 +248,19 @@ class Database:
         Исключения:
             asyncpg.PostgresError: При ошибке выполнения запроса.
         """
+        if not telegram_id and not user_id:
+            raise ValueError("Как минимум один параметр должен быть отпрален. telegram_id или user_id")
+
+        if telegram_id and user_id:
+            raise ValueError("Нельзя отправить сразу и telegram_id и user_id")
+
+        if telegram_id:
+            param = str(telegram_id)
+            column_name = "telegram_id"
+        else:
+            param = user_id
+            column_name = "id"
+
         return await self.fetchone(
-            "SELECT * FROM users WHERE telegram_id = $1", str(telegram_id)
+            f"SELECT * FROM users WHERE {column_name} = $1", param
         )

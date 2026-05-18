@@ -4,7 +4,7 @@ import aiofiles
 from aiogram import F
 from aiogram.types import Message, ReplyKeyboardRemove, ContentType
 from aiogram.fsm.context import FSMContext
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 
 from loader import db, MEDIA_DIR
 from router import router
@@ -89,7 +89,7 @@ async def save_incident(message: Message, state: FSMContext):
                 user_id=user.get("id"),
                 incident_description_type=content_type,
                 incident=incident,
-                floor=data.get("floor")
+                floor=int(data.get("floor"))
             )
             await message.answer(
                 text=f"✅ Заявка <b>#{new_incident.get('id') if new_incident.get('id') else '-'}</b> успешно отправлена\n"
@@ -110,9 +110,14 @@ async def save_incident(message: Message, state: FSMContext):
             else:
                 text += f"Тема обращения: 👇\n"
 
+            markup = InlineKeyboardBuilder()
+            markup.button(text="📝 Сообщить о решении", callback_data=f"solved:{new_incident.get('id')}")
+            markup.adjust(1)
+
             await message.bot.send_message(
                 chat_id=GROUP_ID,
                 text=text,
+                reply_markup=markup.as_markup(),
                 parse_mode="HTML",
             )
 

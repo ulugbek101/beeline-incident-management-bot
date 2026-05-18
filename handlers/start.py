@@ -12,6 +12,10 @@ from handlers.incident_registration import incident_registration
 
 @router.message(Command(commands=["start", "create_incident"], prefix="/"))
 async def start(message: types.Message, command: CommandObject, state: FSMContext):
+    if message.chat.type != "private":
+        await message.answer(text="Обращения в бот должны происходить на странице самого бота, а не в группе")
+        return
+
     floor = command.args
 
     user = await db.get_user(telegram_id=message.from_user.id)
