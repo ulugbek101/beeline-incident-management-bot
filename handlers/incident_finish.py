@@ -31,6 +31,9 @@ async def solve_incident(call: CallbackQuery):
     await call.answer(text="Инцидент успешно решён ✅", show_alert=True)
 
     incident_data = await db.get_incident(id=incident_id)
+    if not incident_data:
+        return
+
     solver = await db.get_user(user_id=incident_data.get('solved_by'))
     initiator = await db.get_user(user_id=incident_data.get('user_id'))
     incident_solved_by = solver.get('fullname') if solver else '-'
