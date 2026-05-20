@@ -22,6 +22,8 @@ _COL_WIDTHS = [10, 30, 30, 20, 30, 10, 10, 30, 30, 20]
 
 _CONTENT_TYPE_LABELS = {
     "text":       "Текст",
+    "photo":      "Фото",
+    "document":   "Файл",
     "voice":      "Голосовое сообщение",
     "video":      "Видео",
     "video_note": "Круглое видео",
@@ -60,6 +62,7 @@ async def send_stats(message: Message):
             u.phone_number  AS user_phone,
             i.incident_description_type,
             i.incident,
+            i.document_caption,
             i.floor,
             i.is_solved,
             s.fullname      AS solver_fullname,
@@ -97,7 +100,7 @@ async def send_stats(message: Message):
             _val(row["user_fullname"]),
             _fmt_phone(row["user_phone"]),
             _CONTENT_TYPE_LABELS.get(row["incident_description_type"], _val(row["incident_description_type"])),
-            _val(row["incident"]),
+            _val(row["document_caption"]) if row["incident_description_type"] in ("photo", "document") else ("-" if row["incident_description_type"] == "video_note" else _val(row["incident"])),
             _val(row["floor"]),
             "Да" if is_solved else "Нет",
             _val(row["solver_fullname"]),

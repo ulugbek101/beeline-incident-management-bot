@@ -50,18 +50,28 @@ async def save_floor(message: Message, state: FSMContext):
 async def save_incident(message: Message, state: FSMContext):
     data = await state.get_data()
 
-    if message.content_type in [ContentType.TEXT, ContentType.VIDEO, ContentType.VIDEO_NOTE, ContentType.VOICE]:
+    if message.content_type in [ContentType.TEXT, ContentType.PHOTO, ContentType.DOCUMENT, ContentType.VIDEO, ContentType.VIDEO_NOTE, ContentType.VOICE]:
         content_type = message.content_type
 
         if content_type == ContentType.TEXT:
             incident = message.text
         else:
+            # Если фото
+            if content_type == ContentType.PHOTO:
+                file_obj = message.photo[-1]
+                ext = "jpg"
+
+            # Если файл
+            elif content_type == ContentType.DOCUMENT:
+                file_obj = message.document
+                ext = os.path.splitext(message.document.file_name or "")[1].lstrip(".") or "bin"
+
             # Если стандартное видео
-            if content_type == ContentType.VIDEO:
+            elif content_type == ContentType.VIDEO:
                 file_obj = message.video
                 ext = "mp4"
 
-            # Если круглое видел
+            # Если круглое видео
             elif content_type == ContentType.VIDEO_NOTE:
                 file_obj = message.video_note
                 ext = "mp4"
@@ -82,6 +92,10 @@ async def save_incident(message: Message, state: FSMContext):
 
             incident = file_path
 
+        document_caption = None
+        if content_type in [ContentType.PHOTO, ContentType.DOCUMENT]:
+            document_caption = message.caption or None
+
         try:
             # Сохранение обращения в базу данных
             user = await db.get_user(telegram_id=message.from_user.id)
@@ -89,7 +103,8 @@ async def save_incident(message: Message, state: FSMContext):
                 user_id=user.get("id"),
                 incident_description_type=content_type,
                 incident=incident,
-                floor=int(data.get("floor"))
+                floor=int(data.get("floor")),
+                document_caption=document_caption,
             )
             await message.answer(
                 text=f"✅ Заявка <b>#{new_incident.get('id') if new_incident.get('id') else '-'}</b> успешно отправлена\n"
@@ -137,5 +152,5 @@ async def save_incident(message: Message, state: FSMContext):
             )
     else:
         await message.answer(
-            text="Можно отправлять только текст, видео или аудио сообщения",
+            text="Можно отправлять только текст, фото, файл, видео или аудио сообщения",
         )

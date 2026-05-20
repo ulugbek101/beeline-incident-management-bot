@@ -158,6 +158,7 @@ class Database:
                 user_id                     INT         NOT NULL,
                 incident_description_type   TEXT        NOT NULL,
                 incident                    TEXT        NOT NULL,
+                document_caption            TEXT        NULL,
                 floor                       INT         NOT NULL,
                 is_solved                   BOOLEAN     NOT NULL DEFAULT FALSE,
                 solved_by                   INT         NULL,
@@ -184,21 +185,31 @@ class Database:
             str(telegram_id), fullname, phone_number
         )
 
-    async def add_incident(self, user_id: int, incident_description_type: str, incident: str, floor: int) -> asyncpg.Record | None:
+    async def migrate_add_document_caption(self) -> None:
+        """Добавляет столбец ``document_caption`` в таблицу ``incidents``, если он ещё не существует.
+        Безопасно запускать при каждом старте — использует ADD COLUMN IF NOT EXISTS.
+        """
+        await self.execute("""
+            ALTER TABLE incidents
+            ADD COLUMN IF NOT EXISTS document_caption TEXT NULL
+        """)
+
+    async def add_incident(self, user_id: int, incident_description_type: str, incident: str, floor: int, document_caption: str | None = None) -> asyncpg.Record | None:
         """Добавляет новый инцидент в таблицу ``incidents``
 
         Аргументы:
             user_id:  ID пользователя (число)
             incident_description_type: Тип инцидента (текст, видео или аудио сообщение)
-            incident: Текст обращения или путь к видео или аудио
+            incident: Текст обращения или путь к файлу
             floor: Номер этажа
+            document_caption: Подпись к фото или файлу (необязательно)
 
         Исключения:
             asyncpg.PostgresError: При ошибке выполнения запроса.
         """
         return await self.fetchone(
-            "INSERT INTO incidents (user_id, incident_description_type, incident, floor) VALUES ($1, $2, $3, $4) RETURNING id, datetime",
-            user_id, incident_description_type, incident, floor
+            "INSERT INTO incidents (user_id, incident_description_type, incident, document_caption, floor) VALUES ($1, $2, $3, $4, $5) RETURNING id, datetime",
+            user_id, incident_description_type, incident, document_caption, floor
         )
 
     async def finish_incident(self, user_id: int, incident_id: int) -> None:
