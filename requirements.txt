@@ -13,6 +13,7 @@ click==8.4.0
 dnspython==2.8.0
 email-validator==2.3.0
 environs==15.0.1
+et_xmlfile==2.0.0
 fastapi==0.136.1
 fastapi-cli==0.0.24
 fastapi-cloud-cli==0.17.1
@@ -30,6 +31,7 @@ MarkupSafe==3.0.3
 marshmallow==4.3.0
 mdurl==0.1.2
 multidict==6.7.1
+openpyxl==3.1.5
 propcache==0.5.2
 pydantic==2.13.4
 pydantic-extra-types==2.11.1
