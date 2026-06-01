@@ -11,6 +11,7 @@ async def main():
     await db.create_users_table()
     await db.create_incidents_table()
     await db.migrate_add_document_caption()
+    await db.migrate_datetime_default()
     await bot.delete_webhook(drop_pending_updates=True)
 
     await set_bot_commands(bot=bot)

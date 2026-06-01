@@ -1,5 +1,6 @@
 import io
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -117,7 +118,7 @@ async def send_stats(message: Message):
     wb.save(buf)
     buf.seek(0)
 
-    filename = f"Отчет по инцидентам {datetime.now().strftime('%d.%m.%Y')}.xlsx"
+    filename = f"Отчет по инцидентам {datetime.now(ZoneInfo('Asia/Tashkent')).strftime('%d.%m.%Y')}.xlsx"
     await message.answer_document(
         document=BufferedInputFile(buf.read(), filename=filename),
     )

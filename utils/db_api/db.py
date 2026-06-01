@@ -1,5 +1,9 @@
 import asyncpg
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Any
+
+_TZ = ZoneInfo("Asia/Tashkent")
 
 
 class Database:
@@ -194,6 +198,15 @@ class Database:
             ADD COLUMN IF NOT EXISTS document_caption TEXT NULL
         """)
 
+    async def migrate_datetime_default(self) -> None:
+        """Меняет DEFAULT у столбца datetime на текущее время в Asia/Tashkent.
+        Безопасно запускать при каждом старте.
+        """
+        await self.execute("""
+            ALTER TABLE incidents
+            ALTER COLUMN datetime SET DEFAULT (NOW() AT TIME ZONE 'Asia/Tashkent')
+        """)
+
     async def add_incident(self, user_id: int, incident_description_type: str, incident: str, floor: int, document_caption: str | None = None) -> asyncpg.Record | None:
         """Добавляет новый инцидент в таблицу ``incidents``
 
@@ -207,9 +220,10 @@ class Database:
         Исключения:
             asyncpg.PostgresError: При ошибке выполнения запроса.
         """
+        now = datetime.now(_TZ).replace(tzinfo=None)
         return await self.fetchone(
-            "INSERT INTO incidents (user_id, incident_description_type, incident, document_caption, floor) VALUES ($1, $2, $3, $4, $5) RETURNING id, datetime",
-            user_id, incident_description_type, incident, document_caption, floor
+            "INSERT INTO incidents (user_id, incident_description_type, incident, document_caption, floor, datetime) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, datetime",
+            user_id, incident_description_type, incident, document_caption, floor, now
         )
 
     async def finish_incident(self, user_id: int, incident_id: int) -> None:
