@@ -21,9 +21,9 @@ async def start(message: types.Message, command: CommandObject, state: FSMContex
     user = await db.get_user(telegram_id=message.from_user.id)
 
     # Команда /start без QR кода и сотрудник ранее не был зарегистрирован в системе
-    if not floor and not user:
-        await message.answer(f"Здравствуйте {message.from_user.full_name}. Пожалуйста отсканируйте QR код")
-        return
+    # if not floor and not user:
+    #     await message.answer(f"Здравствуйте {message.from_user.full_name}. Пожалуйста отсканируйте QR код")
+    #     return
 
     # Если QR код - не числовое значение
     if floor and not floor.isdigit():
@@ -31,7 +31,7 @@ async def start(message: types.Message, command: CommandObject, state: FSMContex
         return
 
     # QR код верный, но сотрудник обращается в 1-раз - начинаем его регистрацию
-    if not user and floor and floor.isdigit():
+    if not floor or (not user and floor and floor.isdigit()):
         await state.update_data(data={"floor": floor})
         await user_registration(message=message, state=state)
         return
