@@ -31,7 +31,7 @@ async def start(message: types.Message, command: CommandObject, state: FSMContex
         return
 
     # QR код верный, но сотрудник обращается в 1-раз - начинаем его регистрацию
-    if not floor or (not user and floor and floor.isdigit()):
+    if (not user and not floor) or (not user and floor and floor.isdigit()):
         await state.update_data(data={"floor": floor})
         await user_registration(message=message, state=state)
         return
