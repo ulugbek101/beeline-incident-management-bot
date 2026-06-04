@@ -101,7 +101,7 @@ async def send_stats(message: Message):
             _val(row["user_fullname"]),
             _fmt_phone(row["user_phone"]),
             _CONTENT_TYPE_LABELS.get(row["incident_description_type"], _val(row["incident_description_type"])),
-            _val(row["document_caption"]) if row["incident_description_type"] in ("photo", "document") else ("-" if row["incident_description_type"] == "video_note" else _val(row["incident"])),
+            _val(row["document_caption"]) if row["incident_description_type"] in ("photo", "document", "video") else ("-" if row["incident_description_type"] == "video_note" else _val(row["incident"])),
             _val(row["floor"]),
             "Да" if is_solved else "Нет",
             _val(row["solver_fullname"]),
