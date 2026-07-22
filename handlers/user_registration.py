@@ -67,7 +67,31 @@ async def save_phone_number(message: Message, state: FSMContext):
 
     data = await state.get_data()
 
-    await db.add_user(telegram_id=message.from_user.id, fullname=data.get("fullname", ""), phone_number=phone_number)
+    try:
+        await db.add_user(telegram_id=message.from_user.id, fullname=data.get("fullname", ""), phone_number=phone_number)
+    except Exception as exp:
+        await message.answer(
+            text=(f"Произошла ошибка при сохранении данных. {exp.__class__.__name__}: {exp}"
+                  f"\nПожалуйста, попробуйте отправить номер телефона заново или "
+                  f"свяжитесь с разработчиком: @thedevu101"),
+        )
+        return
 
-    await state.set_state(IncidentRegistrationForm.incident)
-    await incident_registration(message=message, state=state, floor=data.get('floor'))
+    await state.update_data(data={"phone_number": phone_number})
+
+    floor = data.get('floor')
+    if floor and str(floor).isdigit():
+        await incident_registration(message=message, state=state, floor=int(floor))
+    else:
+        markup = ReplyKeyboardBuilder()
+        markup.button(text="🚫 Отмена")
+        markup.adjust(1)
+
+        await state.set_state(IncidentRegistrationForm.floor)
+        await message.answer(
+            text="Номер этажа",
+            reply_markup=markup.as_markup(
+                resize_keyboard=True,
+                one_time_keyboard=True,
+            )
+        )
